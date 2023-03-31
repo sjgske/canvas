@@ -1,66 +1,74 @@
-import { useEffect, useRef, useState } from "react";
+import { RootState } from "index";
+import React, { useRef, useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { setDrawing } from "slices/modeSlice";
+import useKeyboard from "./hooks/useKeyboard";
 
-const Canvas = () => {
+function Canvas() {
+  useKeyboard();
+  const dispatch = useDispatch();
+  const { drawing } = useSelector((state: RootState) => state.mode);
+  const [ctx, setCtx] = useState<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [ctx, setCtx] = useState<any>();
-  const [pos, setPos] = useState<number[]>([]);
-  const [rect, setRect] = useState<any[]>([]);
-  const [isDraw, setIsDraw] = useState(false);
-  const canvas = canvasRef.current;
+  const [points, setPoints] = useState<any>([]);
 
   useEffect(() => {
-    if (canvas) {
-      const context = canvas.getContext("2d");
-      if (context) {
-        setCtx(context);
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    setCtx(context);
+  }, []);
+
+  useEffect(() => {
+    if (!ctx) return;
+    if (points.length > 1) {
+      ctx.strokeStyle = "slategray";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i][0], points[i][1]);
       }
+      ctx.stroke();
+      setPoints([]);
     }
-  }, [canvas]);
+  }, [drawing]);
 
-  useEffect(() => {
-    rect.forEach((item) => {
-      if (!canvas) return;
-      ctx.fillStyle = "red";
-      ctx.fillRect(item.x, item.y, item.width, item.height);
-    });
-    console.log(rect);
-  }, [rect, ctx, canvas]);
-
-  const onMouseDown = (e: React.MouseEvent) => {
-    setIsDraw(true);
-    setPos([e.clientX, e.clientY]);
-  };
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDraw || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "red";
-    ctx.strokeRect(pos[0], pos[1], e.clientX - pos[0], e.clientY - pos[1]);
-  };
-
-  const onMouseUp = (e: React.MouseEvent) => {
-    setIsDraw(false);
-    setRect([
-      ...rect,
-      {
-        x: pos[0],
-        y: pos[1],
-        width: e.clientX - pos[0],
-        height: e.clientY - pos[1],
-      },
+  function handleMouseDown(event: React.MouseEvent<HTMLCanvasElement>) {
+    if (!drawing) {
+      console.log("click");
+      dispatch(setDrawing(true));
+    }
+    setPoints([
+      ...points,
+      [event.nativeEvent.offsetX, event.nativeEvent.offsetY],
     ]);
-  };
+  }
+
+  function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current as HTMLCanvasElement;
+
+    if (points.length > 0) {
+      console.log("move");
+      const prevPoint = points.slice(-1)[0];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.strokeStyle = "blue";
+      ctx.lineWidth = 10;
+      ctx.moveTo(prevPoint[0], prevPoint[1]);
+      ctx.lineTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+      ctx.stroke();
+    }
+  }
 
   return (
     <canvas
       ref={canvasRef}
-      width="500"
-      height="500"
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      width={500}
+      height={500}
     />
   );
-};
+}
 
 export default Canvas;
